@@ -90,7 +90,7 @@ export default async function BlogPostPage({
               width: "100%",
               display: "flex",
               justifyContent: "center",
-              padding: coverWidth === "full" ? "0" : "0 24px",
+              padding: coverWidth === "full" ? "0" : "0 clamp(12px, 3vw, 24px)",
               marginBottom: "0",
             }}
           >

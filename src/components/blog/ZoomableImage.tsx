@@ -40,6 +40,68 @@ function getBlogImageSettings(): Promise<BlogImageSettings | null> {
   return imageSettingsCache;
 }
 
+/* ── Inline SVG icons (crisp, theme-colored — no emoji) ── */
+
+function MagnifierIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  );
+}
+
+function ResetIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
+  );
+}
+
 export function ZoomableImage({
   src,
   alt,
@@ -56,6 +118,7 @@ export function ZoomableImage({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const imageRef = useRef<HTMLImageElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
   const [imageSettings, setImageSettings] = useState<BlogImageSettings | null>(null);
 
   // Apply admin-configured image styling (theme-aware, defaults match current look)
@@ -70,9 +133,10 @@ export function ZoomableImage({
   }, []);
 
   // Parse inlineStyles if it's a string (from MDX)
-  const parsedInlineStyles = typeof inlineStyles === 'string' 
-    ? JSON.parse(inlineStyles) 
-    : (inlineStyles || {});
+  const parsedInlineStyles =
+    typeof inlineStyles === "string"
+      ? JSON.parse(inlineStyles)
+      : (inlineStyles || {});
 
   // Handle keyboard navigation
   useEffect(() => {
@@ -103,6 +167,32 @@ export function ZoomableImage({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isZoomed]);
 
+  // Lock body scroll while the lightbox is open (kills background-scroll glitch)
+  useEffect(() => {
+    if (!isZoomed) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [isZoomed]);
+
+  // Native non-passive wheel listener so preventDefault actually stops page scroll
+  useEffect(() => {
+    if (!isZoomed) return;
+    const modal = modalRef.current;
+    if (!modal) return;
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      setScale((s) => Math.max(1, Math.min(s + delta, 3)));
+    };
+
+    modal.addEventListener("wheel", onWheel, { passive: false });
+    return () => modal.removeEventListener("wheel", onWheel);
+  }, [isZoomed]);
+
   const handleMouseDown = (e: React.MouseEvent<HTMLImageElement>) => {
     if (scale === 1) return;
     setIsPanning(true);
@@ -118,13 +208,6 @@ export function ZoomableImage({
 
   const handleMouseUp = () => {
     setIsPanning(false);
-  };
-
-  const handleWheel = (e: React.WheelEvent<HTMLImageElement>) => {
-    if (!isZoomed) return;
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    setScale((s) => Math.max(1, Math.min(s + delta, 3)));
   };
 
   const handleTouchStart = (e: React.TouchEvent<HTMLImageElement>) => {
@@ -166,9 +249,6 @@ export function ZoomableImage({
     if (!parsedInlineStyles.padding) containerStyle.padding = imageSettings.padding;
     if (!parsedInlineStyles.borderRadius) containerStyle.borderRadius = imageSettings.borderRadius;
     if (!parsedInlineStyles.boxShadow) containerStyle.boxShadow = imageSettings.boxShadow;
-    // Note: settings.margin intentionally not applied to the container — it would
-    // override the marginTop/marginBottom spacing props (CSS margin shorthand wins).
-    // Theme-aware container background: dark mode only, so light mode stays untouched
     (containerStyle as Record<string, string>)["--img-bg-dark"] = imageSettings.darkThemeBackground;
     (containerStyle as Record<string, string>)["--img-hover-scale"] = String(imageSettings.hoverScale);
   }
@@ -220,6 +300,8 @@ export function ZoomableImage({
             <img
               src={src}
               alt={alt}
+              loading="lazy"
+              decoding="async"
               style={imageStyle}
             />
           ) : (
@@ -233,26 +315,23 @@ export function ZoomableImage({
               enlarge
             />
           )}
-          <div className={styles.zoomIcon}>🔍</div>
+          <span className={styles.zoomIcon}>
+            <MagnifierIcon />
+          </span>
         </button>
       </div>
 
       {isZoomed && (
-        <button
+        <div
           className={styles.backdrop}
           onClick={resetZoom}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") {
-              resetZoom();
-            }
-          }}
-          type="button"
-          aria-label="Close image zoom by clicking background"
+          role="button"
+          aria-label="Close image zoom"
         >
           <div
+            ref={modalRef}
             className={styles.modal}
             onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
             role="document"
           >
             <img
@@ -264,10 +343,12 @@ export function ZoomableImage({
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
-              onWheel={handleWheel}
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
+              onClick={() => {
+                if (scale === 1) resetZoom();
+              }}
               style={{
                 transform: `scale(${scale}) translate(${pan.x / scale}px, ${pan.y / scale}px)`,
                 cursor: scale > 1 ? (isPanning ? "grabbing" : "grab") : "pointer",
@@ -281,7 +362,7 @@ export function ZoomableImage({
               aria-label="Close zoomed image (Esc)"
               title="Close (Esc)"
             >
-              ✕
+              <CloseIcon />
             </button>
 
             {scale > 1 && (
@@ -295,7 +376,7 @@ export function ZoomableImage({
                 aria-label="Reset zoom (Press 0)"
                 title="Reset zoom (0)"
               >
-                🔄
+                <ResetIcon />
               </button>
             )}
 
@@ -305,6 +386,7 @@ export function ZoomableImage({
                 className={styles.zoomButton}
                 onClick={() => setScale((s) => Math.max(1, s - 0.2))}
                 title="Zoom out (−)"
+                aria-label="Zoom out"
                 disabled={scale <= 1}
               >
                 −
@@ -315,6 +397,7 @@ export function ZoomableImage({
                 className={styles.zoomButton}
                 onClick={() => setScale((s) => Math.min(s + 0.2, 3))}
                 title="Zoom in (+)"
+                aria-label="Zoom in"
                 disabled={scale >= 3}
               >
                 +
@@ -322,12 +405,11 @@ export function ZoomableImage({
             </div>
 
             <div className={styles.hint}>
-              {scale > 1 ? "Drag to pan • Scroll to zoom • 0 to reset" : "Click to close • Scroll to zoom"}
+              {scale > 1 ? "Drag to pan · Scroll to zoom · 0 to reset" : "Click to close · Scroll to zoom"}
             </div>
           </div>
-        </button>
+        </div>
       )}
     </>
   );
 }
-

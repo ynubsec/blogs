@@ -17,10 +17,10 @@
   animation: fadeUp 0.4s ease;
 }
 
-/* Add extra padding on mobile for floating navbar */
+/* Add extra padding on mobile for floating navbar (tighter side gutters) */
 @media (max-width: 767px) {
   .shell {
-    padding: 1.5rem 1.5rem 4.5rem;
+    padding: 1rem 1rem 4.5rem;
   }
 }
 

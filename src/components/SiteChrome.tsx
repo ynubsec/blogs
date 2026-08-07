@@ -41,7 +41,14 @@ export function SiteChrome({ config, children }: SiteChromeProps) {
           <Suspense fallback={null}>
             <Header />
           </Suspense>
-          <Flex zIndex={0} fillWidth padding="l" horizontal="center" flex={1}>
+          <Flex
+            zIndex={0}
+            fillWidth
+            padding="l"
+            horizontal="center"
+            flex={1}
+            className="site-content"
+          >
             <Flex horizontal="center" fillWidth minHeight="0">
               <RouteGuard>{children}</RouteGuard>
             </Flex>

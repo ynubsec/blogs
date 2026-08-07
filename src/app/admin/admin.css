@@ -300,13 +300,17 @@
 }
 
 .admin-search::before {
-  content: "🔎";
+  content: "";
   position: absolute;
-  left: 10px;
+  left: 11px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 13px;
-  opacity: 0.6;
+  width: 14px;
+  height: 14px;
+  background: var(--text-muted);
+  opacity: 0.7;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
 .admin-search-input {
@@ -730,6 +734,18 @@
   transform: translateY(-2px);
 }
 
+.admin-quick-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  margin-bottom: 2px;
+}
+
 /* ---------- Pagination ---------- */
 
 .admin-pagination {
@@ -871,6 +887,13 @@
   border-radius: 10px;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
   padding: 24px;
+}
+
+.admin-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
 }
 
 .admin-modal-actions {
@@ -1300,7 +1323,7 @@
 @media (max-width: 900px) {
   .admin-main {
     margin-left: 0;
-    padding: 64px 16px 48px;
+    padding: 64px 14px 48px;
   }
 
   .admin-hamburger {
@@ -1323,10 +1346,67 @@
   .preview-pane {
     padding: 18px 16px;
   }
+
+  .admin-card {
+    padding: 18px;
+  }
+
+  .admin-modal {
+    padding: 20px;
+  }
 }
 
 @media (max-width: 768px) {
   .form-row {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Keep table rows readable: let them scroll instead of crushing into tiny text */
+  .admin-table {
+    min-width: 600px;
+  }
+
+  .admin-table-wrap {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+  }
+
+  .admin-gallery-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+  }
+
+  .admin-page-title {
+    font-size: 20px;
+  }
+
+  .admin-modal-overlay {
+    padding: 12px;
+  }
+
+  .admin-modal {
+    padding: 18px;
+  }
+
+  .admin-login-card {
+    padding: 24px;
+  }
+
+  /* Toasts span the full width on small phones */
+  .admin-toast-container {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    max-width: none;
+  }
+
+  .admin-toast {
+    font-size: 12.5px;
   }
 }

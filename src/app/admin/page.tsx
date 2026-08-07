@@ -2,6 +2,14 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
+import {
+  LuSquarePen,
+  LuVideo,
+  LuTag,
+  LuSettings,
+  LuEye,
+  LuTrash2,
+} from "react-icons/lu";
 import { AdminSidebar } from "./AdminSidebar";
 import { useAdminToast } from "@/lib/adminToast";
 
@@ -222,22 +230,30 @@ export default function AdminDashboard() {
 
         <div className="admin-quick-grid">
           <Link href="/admin/writeups/new" className="admin-quick-card">
-            <span>📝</span>
+            <span className="admin-quick-icon">
+              <LuSquarePen size={20} />
+            </span>
             <strong>New writeup</strong>
             <small>Blog post</small>
           </Link>
           <Link href="/admin/writeups/new?mode=video" className="admin-quick-card">
-            <span>🎬</span>
+            <span className="admin-quick-icon">
+              <LuVideo size={20} />
+            </span>
             <strong>New video</strong>
             <small>Personal tab</small>
           </Link>
           <Link href="/admin/categories" className="admin-quick-card">
-            <span>🏷️</span>
+            <span className="admin-quick-icon">
+              <LuTag size={20} />
+            </span>
             <strong>Categories</strong>
             <small>Flow map nav</small>
           </Link>
           <Link href="/admin/settings" className="admin-quick-card">
-            <span>⚙️</span>
+            <span className="admin-quick-icon">
+              <LuSettings size={20} />
+            </span>
             <strong>Settings</strong>
             <small>Site config</small>
           </Link>
@@ -401,7 +417,7 @@ export default function AdminDashboard() {
                             className="btn btn-ghost btn-sm btn-icon"
                             title="View post"
                           >
-                            👁
+                            <LuEye size={14} />
                           </Link>
                           <Link
                             href={`/admin/writeups/${w.id}/edit`}
@@ -472,7 +488,9 @@ export default function AdminDashboard() {
         {deleteTarget && (
           <div className="admin-modal-overlay" onClick={() => setDeleteTarget(null)}>
             <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
-              <h3>🗑 Delete Writeup</h3>
+              <h3 className="admin-modal-title">
+                <LuTrash2 size={18} /> Delete Writeup
+              </h3>
               <p>
                 Are you sure you want to delete <strong>"{deleteTarget.title}"</strong>?
                 This action cannot be undone.

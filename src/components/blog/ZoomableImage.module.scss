@@ -43,12 +43,21 @@
   position: absolute;
   bottom: 12px;
   right: 12px;
-  font-size: 24px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #ffffff;
   opacity: 0;
   transform: scale(0.8);
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
   pointer-events: none;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
 .backdrop {
@@ -116,7 +125,6 @@
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
   pointer-events: auto;
   cursor: pointer;
-  transition: transform 0.1s ease-out;
   will-change: transform;
   user-select: none;
   -webkit-user-select: none;
@@ -313,10 +321,22 @@
   }
 }
 
+// Touch devices have no hover, so keep the zoom affordance visible
+@media (hover: none) {
+  .zoomIcon {
+    opacity: 0.85;
+    transform: scale(1);
+  }
+}
+
 @media (max-width: 480px) {
   .modal {
     max-width: 98vw;
     max-height: 98vh;
+  }
+
+  .hint {
+    display: none;
   }
 
   .closeButton {

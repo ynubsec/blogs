@@ -383,3 +383,27 @@ body {
   transform: scale(1.02);
   filter: brightness(0.98);
 }
+
+/* ── Mobile: reclaim horizontal space ──────────────────────────── */
+/* The once-ui "l" padding is 40px on desktop; pages control their own
+   gutters (page-shell etc.), so on phones zero the sides of the site
+   wrapper to stop double margins stacking up. Desktop keeps the gutter. */
+@media (max-width: 767px) {
+  .site-content {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  /* Blog article + other fixed 24px-gutter layouts: tighten on small screens */
+  .px-24 {
+    padding-left: var(--static-space-16) !important;
+    padding-right: var(--static-space-16) !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .px-24 {
+    padding-left: var(--static-space-12) !important;
+    padding-right: var(--static-space-12) !important;
+  }
+}
