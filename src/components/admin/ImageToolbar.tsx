@@ -88,7 +88,7 @@ export function ImageToolbar({ onInsertImage }: ImageToolbarProps) {
             onKeyDown={(e) => e.stopPropagation()}
             role="presentation"
           >  <div className={styles.modalHeader}>
-              <h3>Insert Image</h3>              <p style={{ fontSize: "12px", color: "#666", margin: "4px 0 0 0" }}>Images become clickable & zoomable automatically</p>              <button
+              <h3>Insert Image</h3>              <p style={{ fontSize: "12px", color: "var(--text-muted, #98989f)", margin: "4px 0 0 0" }}>Images become clickable & zoomable automatically</p>              <button
                 type="button"
                 className={styles.closeBtn}
                 onClick={resetForm}

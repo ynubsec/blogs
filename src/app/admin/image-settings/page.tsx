@@ -11,6 +11,10 @@ interface ImageSettings {
   hoverScale: number;
   margin: string;
   imageBackground: string;
+  coverAspectRatio: string;
+  coverWidth: string;
+  inlineImageMaxHeight: string;
+  inlineImageMaxWidth: string;
 }
 
 const DEFAULT_SETTINGS: ImageSettings = {
@@ -21,6 +25,10 @@ const DEFAULT_SETTINGS: ImageSettings = {
   hoverScale: 1.01,
   margin: "0px",
   imageBackground: "white",
+  coverAspectRatio: "16/9",
+  coverWidth: "wide",
+  inlineImageMaxHeight: "480px",
+  inlineImageMaxWidth: "100%",
 };
 
 export default function ImageSettingsPage() {
@@ -90,7 +98,7 @@ export default function ImageSettingsPage() {
         <div className="admin-page-header">
           <div>
             <h1 className="admin-page-title">Image Styling</h1>
-            <p className="admin-page-subtitle">Configure how images look on blog pages</p>
+            <p className="admin-page-subtitle">Configure cover and inline images on blog pages</p>
           </div>
           <div style={{ display: "flex", gap: "10px" }}>
             <button type="button" className="btn btn-ghost" onClick={handleReset}>
@@ -118,7 +126,7 @@ export default function ImageSettingsPage() {
         )}
 
         {loading ? (
-          <p style={{ color: "#64748b" }}>Loading settings...</p>
+          <p className="text-muted">Loading settings...</p>
         ) : (
           <>
             <div className="admin-card">
@@ -244,6 +252,87 @@ export default function ImageSettingsPage() {
               </div>
             </div>
 
+            <div className="admin-card" style={{ marginTop: "20px" }}>
+              <h2 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "20px" }}>
+                Cover Image (Blog Post Hero)
+              </h2>
+
+              <div className="form-row">
+                <div className="form-field">
+                  <label htmlFor="cover-aspect" className="form-label">Aspect Ratio</label>
+                  <select
+                    id="cover-aspect"
+                    className="form-input"
+                    value={settings.coverAspectRatio}
+                    onChange={(e) => handleChange("coverAspectRatio", e.target.value)}
+                  >
+                    <option value="16/9">16:9 (default)</option>
+                    <option value="21/9">21:9 (ultra-wide)</option>
+                    <option value="2/1">2:1</option>
+                    <option value="3/2">3:2</option>
+                    <option value="4/3">4:3</option>
+                    <option value="1/1">1:1</option>
+                    <option value="auto">Auto (original size)</option>
+                  </select>
+                </div>
+
+                <div className="form-field">
+                  <label htmlFor="cover-width" className="form-label">Cover Width</label>
+                  <select
+                    id="cover-width"
+                    className="form-input"
+                    value={settings.coverWidth}
+                    onChange={(e) => handleChange("coverWidth", e.target.value)}
+                  >
+                    <option value="wide">Wide — bigger than text (default)</option>
+                    <option value="full">Full width (edge to edge)</option>
+                    <option value="standard">Same as text column</option>
+                  </select>
+                  <p style={{ fontSize: "12px", color: "var(--text-muted, #64748b)", marginTop: "6px" }}>
+                    Renders the hero image above the title, wider than the text column.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="admin-card" style={{ marginTop: "20px" }}>
+              <h2 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "20px" }}>
+                Inline Body Images
+              </h2>
+
+              <div className="form-row">
+                <div className="form-field">
+                  <label htmlFor="inline-max-h" className="form-label">Max Height</label>
+                  <input
+                    id="inline-max-h"
+                    type="text"
+                    value={settings.inlineImageMaxHeight}
+                    onChange={(e) => handleChange("inlineImageMaxHeight", e.target.value)}
+                    className="form-input"
+                    placeholder="480px or auto"
+                  />
+                  <p style={{ fontSize: "12px", color: "var(--text-muted, #64748b)", marginTop: "6px" }}>
+                    Tall images are capped to this height and centered (480px default). Use "auto" to disable.
+                  </p>
+                </div>
+
+                <div className="form-field">
+                  <label htmlFor="inline-max-w" className="form-label">Max Width</label>
+                  <input
+                    id="inline-max-w"
+                    type="text"
+                    value={settings.inlineImageMaxWidth}
+                    onChange={(e) => handleChange("inlineImageMaxWidth", e.target.value)}
+                    className="form-input"
+                    placeholder="100% or 700px"
+                  />
+                  <p style={{ fontSize: "12px", color: "var(--text-muted, #64748b)", marginTop: "6px" }}>
+                    Full width by default; set e.g. 85% for smaller inline images.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div
               className="admin-card"
               style={{
@@ -255,8 +344,8 @@ export default function ImageSettingsPage() {
                 transition: "all 0.3s ease",
               }}
             >
-              <h3 style={{ fontSize: "14px", color: "#333", marginBottom: "12px" }}>Live Preview</h3>
-              <p style={{ fontSize: "12px", color: "#666" }}>
+              <h3 style={{ fontSize: "14px", color: "var(--text, #f5f5f7)", marginBottom: "12px" }}>Live Preview</h3>
+              <p style={{ fontSize: "12px", color: "var(--text-muted, #98989f)" }}>
                 This shows how images will look with your settings in dark mode.
               </p>
               <img

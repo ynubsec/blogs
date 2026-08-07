@@ -15,6 +15,31 @@ interface ZoomableImageProps {
   inlineStyles?: React.CSSProperties | string;
 }
 
+interface BlogImageSettings {
+  darkThemeBackground: string;
+  borderRadius: string;
+  padding: string;
+  boxShadow: string;
+  hoverScale: number;
+  margin: string;
+  imageBackground: string;
+  coverAspectRatio: string;
+  coverWidth: string;
+  inlineImageMaxHeight: string;
+  inlineImageMaxWidth: string;
+}
+
+// Fetch blog image styling once per session (module-level cache)
+let imageSettingsCache: Promise<BlogImageSettings | null> | null = null;
+function getBlogImageSettings(): Promise<BlogImageSettings | null> {
+  if (!imageSettingsCache) {
+    imageSettingsCache = fetch("/api/admin/image-settings")
+      .then((res) => (res.ok ? (res.json() as Promise<BlogImageSettings>) : null))
+      .catch(() => null);
+  }
+  return imageSettingsCache;
+}
+
 export function ZoomableImage({
   src,
   alt,
@@ -31,6 +56,18 @@ export function ZoomableImage({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const imageRef = useRef<HTMLImageElement>(null);
+  const [imageSettings, setImageSettings] = useState<BlogImageSettings | null>(null);
+
+  // Apply admin-configured image styling (theme-aware, defaults match current look)
+  useEffect(() => {
+    let cancelled = false;
+    getBlogImageSettings().then((settings) => {
+      if (!cancelled) setImageSettings(settings);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Parse inlineStyles if it's a string (from MDX)
   const parsedInlineStyles = typeof inlineStyles === 'string' 
@@ -124,10 +161,33 @@ export function ZoomableImage({
     ...parsedInlineStyles,
   };
 
+  // Admin image-styling settings (only override when configured)
+  if (imageSettings) {
+    if (!parsedInlineStyles.padding) containerStyle.padding = imageSettings.padding;
+    if (!parsedInlineStyles.borderRadius) containerStyle.borderRadius = imageSettings.borderRadius;
+    if (!parsedInlineStyles.boxShadow) containerStyle.boxShadow = imageSettings.boxShadow;
+    // Note: settings.margin intentionally not applied to the container — it would
+    // override the marginTop/marginBottom spacing props (CSS margin shorthand wins).
+    // Theme-aware container background: dark mode only, so light mode stays untouched
+    (containerStyle as Record<string, string>)["--img-bg-dark"] = imageSettings.darkThemeBackground;
+    (containerStyle as Record<string, string>)["--img-hover-scale"] = String(imageSettings.hoverScale);
+  }
+
   const imageStyle: React.CSSProperties = {
     maxWidth: "100%",
     height: "auto",
-    borderRadius: "8px",
+    borderRadius: imageSettings?.borderRadius || "8px",
+    ...(imageSettings ? { backgroundColor: imageSettings.imageBackground } : {}),
+    // Inline body images: cap height/width from admin settings and center when
+    // the cap shrinks them (floated left/right aligned images keep their margins).
+    ...(imageSettings && inline
+      ? {
+          display: "block",
+          margin: "0 auto",
+          maxHeight: imageSettings.inlineImageMaxHeight || "auto",
+          maxWidth: imageSettings.inlineImageMaxWidth || "100%",
+        }
+      : {}),
     ...parsedInlineStyles,
   };
 

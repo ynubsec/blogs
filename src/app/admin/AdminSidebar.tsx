@@ -3,21 +3,38 @@
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
+import {
+  LuLayoutDashboard,
+  LuFileText,
+  LuVideo,
+  LuTag,
+  LuBriefcase,
+  LuImage,
+  LuSlidersHorizontal,
+  LuMail,
+  LuSettings,
+  LuTrash2,
+  LuExternalLink,
+  LuLogOut,
+  LuMenu,
+  LuX,
+} from "react-icons/lu";
+import type { IconType } from "react-icons/lib";
 
-const CONTENT_LINKS = [
-  { href: "/admin", label: "Dashboard", icon: "📊", exact: true },
-  { href: "/admin/writeups", label: "Writeups", icon: "📝" },
-  { href: "/admin/videos", label: "Videos", icon: "🎬" },
-  { href: "/admin/categories", label: "Categories", icon: "🏷️" },
-  { href: "/admin/projects", label: "Projects", icon: "💼" },
+const CONTENT_LINKS: { href: string; label: string; icon: IconType; exact?: boolean }[] = [
+  { href: "/admin", label: "Dashboard", icon: LuLayoutDashboard, exact: true },
+  { href: "/admin/writeups", label: "Writeups", icon: LuFileText },
+  { href: "/admin/videos", label: "Videos", icon: LuVideo },
+  { href: "/admin/categories", label: "Categories", icon: LuTag },
+  { href: "/admin/projects", label: "Projects", icon: LuBriefcase },
 ];
 
-const SITE_LINKS = [
-  { href: "/admin/gallery", label: "Gallery", icon: "🖼️" },
-  { href: "/admin/image-settings", label: "Image Styling", icon: "🎨" },
-  { href: "/admin/subscribers", label: "Subscribers", icon: "📬" },
-  { href: "/admin/settings", label: "Settings", icon: "⚙️" },
-  { href: "/admin/trash", label: "Trash", icon: "🗑️" },
+const SITE_LINKS: { href: string; label: string; icon: IconType }[] = [
+  { href: "/admin/gallery", label: "Gallery", icon: LuImage },
+  { href: "/admin/image-settings", label: "Image Styling", icon: LuSlidersHorizontal },
+  { href: "/admin/subscribers", label: "Subscribers", icon: LuMail },
+  { href: "/admin/settings", label: "Settings", icon: LuSettings },
+  { href: "/admin/trash", label: "Trash", icon: LuTrash2 },
 ];
 
 function isActive(pathname: string, href: string, exact?: boolean) {
@@ -45,7 +62,7 @@ export function AdminSidebar() {
         onClick={() => setSidebarOpen((o) => !o)}
         aria-label="Toggle sidebar"
       >
-        {sidebarOpen ? "✕" : "☰"}
+        {sidebarOpen ? <LuX size={18} /> : <LuMenu size={18} />}
       </button>
 
       <div
@@ -53,10 +70,13 @@ export function AdminSidebar() {
         onClick={closeSidebar}
       />
 
-      <aside className={`admin-sidebar ${sidebarOpen ? "open" : ""}`} style={{backgroundColor: "black"}}>
+      <aside className={`admin-sidebar ${sidebarOpen ? "open" : ""}`}>
         <div className="admin-sidebar-logo">
-          <h2>YNUBSEC</h2>
-          <p>Admin Console</p>
+          <span className="admin-logo-badge">Y</span>
+          <div className="admin-logo-text">
+            <h2>YNUBSEC</h2>
+            <p>Admin Console</p>
+          </div>
         </div>
 
         <nav className="admin-nav">
@@ -68,8 +88,10 @@ export function AdminSidebar() {
               onClick={closeSidebar}
               className={isActive(pathname, link.href, link.exact) ? "active" : ""}
             >
-              <span className="admin-nav-icon">{link.icon}</span>
-              {link.label}
+              <span className="admin-nav-icon">
+                <link.icon size={16} />
+              </span>
+              <span className="admin-nav-label">{link.label}</span>
             </Link>
           ))}
 
@@ -81,18 +103,22 @@ export function AdminSidebar() {
               onClick={closeSidebar}
               className={isActive(pathname, link.href) ? "active" : ""}
             >
-              <span className="admin-nav-icon">{link.icon}</span>
-              {link.label}
+              <span className="admin-nav-icon">
+                <link.icon size={16} />
+              </span>
+              <span className="admin-nav-label">{link.label}</span>
             </Link>
           ))}
         </nav>
 
         <div className="admin-sidebar-footer">
           <Link href="/blogs" target="_blank" rel="noreferrer" className="admin-view-site">
-            ↗ View site
+            <LuExternalLink size={15} />
+            <span className="admin-nav-label">View site</span>
           </Link>
           <button type="button" className="admin-logout-btn" onClick={handleLogout}>
-            <span>🚪</span> Logout
+            <LuLogOut size={15} />
+            <span className="admin-nav-label">Logout</span>
           </button>
         </div>
       </aside>

@@ -19,7 +19,7 @@
   z-index: 1;
 
   &:hover {
-    transform: scale(1.01);
+    transform: scale(var(--img-hover-scale, 1.01));
 
     .zoomIcon {
       opacity: 1;
@@ -32,6 +32,11 @@
     outline-offset: 2px;
     border-radius: 8px;
   }
+}
+
+// Admin-configured container background (dark mode only — light mode stays untouched)
+:global([data-theme="dark"]) .imageContainer {
+  background-color: var(--img-bg-dark, transparent) !important;
 }
 
 .zoomIcon {

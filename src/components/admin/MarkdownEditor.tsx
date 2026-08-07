@@ -2,7 +2,19 @@
 
 import dynamic from "next/dynamic";
 import "easymde/dist/easymde.min.css";
-import { forwardRef, useImperativeHandle, useMemo, useRef } from "react";
+import {
+  Component,
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 import type SimpleMDE from "easymde";
 
 const SimpleMdeReact = dynamic(() => import("react-simplemde-editor"), { ssr: false });
@@ -17,9 +29,46 @@ interface MarkdownEditorProps {
   placeholder?: string;
 }
 
+/** Never let a preview parsing hiccup (e.g. exotic MDX) blank the whole editor. */
+class PreviewErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  // Clear the error state once the content changes so a transient hiccup
+  // (e.g. pasted malformed HTML) doesn't disable the preview for the session.
+  componentDidUpdate(prevProps: { children: ReactNode }) {
+    if (this.state.hasError && prevProps.children !== this.props.children) {
+      this.setState({ hasError: false });
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="preview-pane preview-error">
+          Preview isn&apos;t available for this content (it may contain custom components). Save
+          and open the post on the site to see it rendered.
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorProps>(
   function MarkdownEditor({ value, onChange, placeholder }, ref) {
     const mdeRef = useRef<SimpleMDE | null>(null);
+    const [view, setView] = useState<"write" | "preview">("write");
+
+    // Debounced copy of the value so the preview doesn't re-render per keystroke
+    const [preview, setPreview] = useState(value);
+    useEffect(() => {
+      const t = window.setTimeout(() => setPreview(value), 200);
+      return () => window.clearTimeout(t);
+    }, [value]);
 
     useImperativeHandle(ref, () => ({
       insertText(text: string) {
@@ -84,7 +133,8 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorPro
             title: "Insert Flowchart (Mermaid)",
           },
           "|",
-          "preview", "side-by-side", "fullscreen", "|",
+          "fullscreen",
+          "|",
           "guide",
         ] as const,
         uploadImage: true,
@@ -115,69 +165,51 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorPro
     }, [placeholder]);
 
     return (
-      <div className="markdown-editor-wrapper" style={{ backgroundColor: "#fff", color: "#333", borderRadius: "8px", marginTop: "8px", width: "100%", maxWidth: "100%", overflow: "hidden" }}>
-        <style>{`
-        .markdown-editor-wrapper .editor-toolbar {
-          display: flex;
-          flex-wrap: wrap;
-          box-sizing: border-box;
-          max-width: 100%;
-        }
-        .markdown-editor-wrapper .CodeMirror {
-          box-sizing: border-box;
-          max-width: 100%;
-          word-wrap: break-word;
-          height: 400px;
-        }
-        .markdown-editor-wrapper .editor-toolbar button {
-          color: #333 !important;
-        }
-        .markdown-editor-wrapper .editor-preview {
-          background: #fff;
-          color: #202122;
-          font-family: sans-serif;
-          line-height: 1.6;
-          padding: 2em;
-        }
-        .markdown-editor-wrapper .editor-preview table {
-          background-color: #f8f9fa;
-          margin: 1em 0;
-          border: 1px solid #a2a9b1;
-          border-collapse: collapse;
-          width: 100%;
-        }
-        .markdown-editor-wrapper .editor-preview th,
-        .markdown-editor-wrapper .editor-preview td {
-          border: 1px solid #a2a9b1;
-          padding: 0.5em 1em;
-        }
-        .markdown-editor-wrapper .editor-preview th {
-          background-color: #eaecf0;
-          text-align: left;
-          font-weight: bold;
-        }
-        .markdown-editor-wrapper .editor-preview pre {
-          background-color: #f8f9fa;
-          border: 1px solid #eaecf0;
-          padding: 1em;
-          overflow-x: auto;
-          border-radius: 2px;
-        }
-        .markdown-editor-wrapper .editor-preview code {
-          background-color: #f8f9fa;
-          padding: 0.2em 0.4em;
-          border-radius: 2px;
-          font-family: monospace;
-        }
-      `}</style>
-        <SimpleMdeReact
-          value={value}
-          onChange={onChange}
-          options={options}
-          getMdeInstance={(instance) => {
-            mdeRef.current = instance;
-          }}
-        />
+      <div className="live-editor">
+        <div className="live-editor-bar">
+          <span className="live-editor-title">Edit source</span>
+          <div className="live-editor-tabs">
+            <button
+              type="button"
+              className={`live-editor-tab ${view === "write" ? "active" : ""}`}
+              onClick={() => setView("write")}
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              className={`live-editor-tab ${view === "preview" ? "active" : ""}`}
+              onClick={() => setView("preview")}
+            >
+              Show preview
+            </button>
+          </div>
+        </div>
+
+        <div className="live-editor-body">
+          <div className="markdown-editor-wrapper">
+            <SimpleMdeReact
+              value={value}
+              onChange={onChange}
+              options={options}
+              getMdeInstance={(instance) => {
+                mdeRef.current = instance;
+              }}
+            />
+          </div>
+        </div>
+
+        {view === "preview" && (
+          <div className="preview-pane-wrap">
+            <PreviewErrorBoundary>
+              <div className="preview-pane">
+                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                  {preview}
+                </ReactMarkdown>
+              </div>
+            </PreviewErrorBoundary>
+          </div>
+        )}
       </div>
     );
   },

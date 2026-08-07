@@ -26,7 +26,14 @@ function LoginForm() {
       router.push(from);
       router.refresh();
     } else {
-      setError("Invalid password. Access denied.");
+      let message = "Invalid password. Access denied.";
+      try {
+        const data = await res.json();
+        if (data?.message) message = data.message;
+      } catch {
+        // keep the default message
+      }
+      setError(message);
       setLoading(false);
     }
   };

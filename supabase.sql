@@ -1,3 +1,9 @@
+-- ============================================================================
+-- SUPABASE SCHEMA — single consolidated file (safe to re-run)
+-- Everything uses IF NOT EXISTS / DROP ... IF EXISTS so you can paste the whole
+-- file into the Supabase SQL editor as many times as you like.
+-- ============================================================================
+
 -- ==========================================
 -- 1. WRITEUPS (Blog Posts)
 -- ==========================================
@@ -56,6 +62,7 @@ CREATE TABLE IF NOT EXISTS public.site_config (
   footer_text text,
   accent_color text,
   social_links jsonb DEFAULT '[]'::jsonb,
+  email jsonb, -- { from_address } used by the admin email broadcasts
   person jsonb,
   newsletter jsonb,
   home jsonb,
@@ -90,76 +97,131 @@ CREATE TABLE IF NOT EXISTS public.contact_messages (
 );
 
 -- ==========================================
--- ENABLE ROW LEVEL SECURITY (RLS)
--- ==========================================
-ALTER TABLE public.writeups ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.site_config ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.subscribers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.contact_messages ENABLE ROW LEVEL SECURITY;
-
--- ==========================================
--- PUBLIC READ POLICIES (safe to re-run)
--- ==========================================
-DROP POLICY IF EXISTS "Public writeups are viewable by everyone." ON public.writeups;
-CREATE POLICY "Public writeups are viewable by everyone." ON public.writeups FOR SELECT USING (status = 'Published' AND is_deleted = false);
-
-DROP POLICY IF EXISTS "Public projects are viewable by everyone." ON public.projects;
-CREATE POLICY "Public projects are viewable by everyone." ON public.projects FOR SELECT USING (status = 'Published' AND is_deleted = false);
-
-DROP POLICY IF EXISTS "Site config is viewable by everyone." ON public.site_config;
-CREATE POLICY "Site config is viewable by everyone." ON public.site_config FOR SELECT USING (true);
-
--- ==========================================
--- PUBLIC WRITE POLICIES (Forms)
--- ==========================================
-DROP POLICY IF EXISTS "Anyone can subscribe" ON public.subscribers;
-CREATE POLICY "Anyone can subscribe" ON public.subscribers FOR INSERT WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Anyone can send contact message" ON public.contact_messages;
-CREATE POLICY "Anyone can send contact message" ON public.contact_messages FOR INSERT WITH CHECK (true);
-
--- ==========================================
--- ADMIN POLICIES (Service Role has full access)
--- ==========================================
-DROP POLICY IF EXISTS "Service role full access writeups" ON public.writeups;
-CREATE POLICY "Service role full access writeups" ON public.writeups FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Service role full access projects" ON public.projects;
-CREATE POLICY "Service role full access projects" ON public.projects FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Service role full access config" ON public.site_config;
-CREATE POLICY "Service role full access config" ON public.site_config FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Service role full access subscribers" ON public.subscribers;
-CREATE POLICY "Service role full access subscribers" ON public.subscribers FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Service role full access messages" ON public.contact_messages;
-CREATE POLICY "Service role full access messages" ON public.contact_messages FOR ALL USING (true) WITH CHECK (true);
-
--- Insert default site config row
-INSERT INTO public.site_config (id, site_name) VALUES (1, 'YNUBSEC') ON CONFLICT (id) DO NOTHING;
-
--- ==========================================
--- 6. NAV CATEGORIES (Admin-managed navbar)
+-- 6. NAV CATEGORIES (with subcategory support)
 -- ==========================================
 CREATE TABLE IF NOT EXISTS public.categories (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   name text UNIQUE NOT NULL,
   slug text UNIQUE NOT NULL,
   sort_order integer DEFAULT 0 NOT NULL,
+  parent_id uuid REFERENCES public.categories(id) ON DELETE CASCADE,
+  description text,
+  icon text,
   created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
-ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Categories are viewable by everyone." ON public.categories;
-CREATE POLICY "Categories are viewable by everyone." ON public.categories FOR SELECT USING (true);
-DROP POLICY IF EXISTS "Service role full access categories" ON public.categories;
-CREATE POLICY "Service role full access categories" ON public.categories FOR ALL USING (true) WITH CHECK (true);
+-- A category cannot be its own parent (re-created safely on each run).
+ALTER TABLE public.categories DROP CONSTRAINT IF EXISTS check_not_self_parent;
+ALTER TABLE public.categories
+  ADD CONSTRAINT check_not_self_parent CHECK (id != parent_id);
 
 -- ==========================================
--- PERFORMANCE INDEXES (run after tables exist)
+-- 7. DIAGRAMS (Diagram Builder)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS public.diagrams (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  name text NOT NULL,
+  description text,
+  nodes jsonb NOT NULL DEFAULT '[]',
+  connections jsonb NOT NULL DEFAULT '[]',
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+-- ==========================================
+-- 8. SITE SETTINGS (Admin → Image Styling key/value store)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS public.site_settings (
+  key text PRIMARY KEY,
+  value jsonb,
+  updated_at timestamptz DEFAULT timezone('utc'::text, now())
+);
+
+-- ==========================================
+-- ROW LEVEL SECURITY
+-- ==========================================
+ALTER TABLE public.writeups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.site_config ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.subscribers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.contact_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.diagrams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
+
+-- ==========================================
+-- PUBLIC READ POLICIES
+-- ==========================================
+DROP POLICY IF EXISTS "Public writeups are viewable by everyone." ON public.writeups;
+CREATE POLICY "Public writeups are viewable by everyone." ON public.writeups
+  FOR SELECT USING (status = 'Published' AND is_deleted = false);
+
+DROP POLICY IF EXISTS "Public projects are viewable by everyone." ON public.projects;
+CREATE POLICY "Public projects are viewable by everyone." ON public.projects
+  FOR SELECT USING (status = 'Published' AND is_deleted = false);
+
+DROP POLICY IF EXISTS "Site config is viewable by everyone." ON public.site_config;
+CREATE POLICY "Site config is viewable by everyone." ON public.site_config
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Categories are viewable by everyone." ON public.categories;
+CREATE POLICY "Categories are viewable by everyone." ON public.categories
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow public read" ON public.diagrams;
+CREATE POLICY "Allow public read" ON public.diagrams
+  FOR SELECT USING (true);
+
+-- ==========================================
+-- PUBLIC WRITE POLICIES (Forms)
+-- ==========================================
+DROP POLICY IF EXISTS "Anyone can subscribe" ON public.subscribers;
+CREATE POLICY "Anyone can subscribe" ON public.subscribers
+  FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Anyone can send contact message" ON public.contact_messages;
+CREATE POLICY "Anyone can send contact message" ON public.contact_messages
+  FOR INSERT WITH CHECK (true);
+
+-- ==========================================
+-- ADMIN POLICIES (Service role has full access; service_role bypasses RLS)
+-- ==========================================
+DROP POLICY IF EXISTS "Service role full access writeups" ON public.writeups;
+CREATE POLICY "Service role full access writeups" ON public.writeups
+  FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Service role full access projects" ON public.projects;
+CREATE POLICY "Service role full access projects" ON public.projects
+  FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Service role full access config" ON public.site_config;
+CREATE POLICY "Service role full access config" ON public.site_config
+  FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Service role full access subscribers" ON public.subscribers;
+CREATE POLICY "Service role full access subscribers" ON public.subscribers
+  FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Service role full access messages" ON public.contact_messages;
+CREATE POLICY "Service role full access messages" ON public.contact_messages
+  FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Service role full access categories" ON public.categories;
+CREATE POLICY "Service role full access categories" ON public.categories
+  FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Service role full access site settings" ON public.site_settings;
+CREATE POLICY "Service role full access site settings" ON public.site_settings
+  FOR ALL USING (true) WITH CHECK (true);
+
+-- Diagrams: authenticated users may manage them.
+DROP POLICY IF EXISTS "Allow authenticated users to manage diagrams" ON public.diagrams;
+CREATE POLICY "Allow authenticated users to manage diagrams" ON public.diagrams
+  FOR ALL USING (auth.role() = 'authenticated')
+  WITH CHECK (auth.role() = 'authenticated');
+
+-- ==========================================
+-- PERFORMANCE INDEXES
 -- ==========================================
 CREATE INDEX IF NOT EXISTS idx_writeups_published_list
   ON public.writeups (created_at DESC)
@@ -176,24 +238,33 @@ CREATE INDEX IF NOT EXISTS idx_writeups_slug
 CREATE INDEX IF NOT EXISTS idx_categories_nav_order
   ON public.categories (sort_order ASC, name ASC);
 
+CREATE INDEX IF NOT EXISTS idx_categories_parent_id ON public.categories(parent_id);
+CREATE INDEX IF NOT EXISTS idx_categories_sort_order ON public.categories(sort_order);
+CREATE INDEX IF NOT EXISTS idx_categories_parent_sort ON public.categories(parent_id, sort_order);
+
 CREATE INDEX IF NOT EXISTS idx_projects_published_list
   ON public.projects (created_at DESC)
   WHERE is_deleted = false AND status = 'Published';
 
--- Optional starter categories (safe to re-run)
+CREATE INDEX IF NOT EXISTS idx_diagrams_created_at ON public.diagrams(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_diagrams_name ON public.diagrams(name);
+
+-- ==========================================
+-- SEED DATA (safe to re-run)
+-- ==========================================
+INSERT INTO public.site_config (id, site_name) VALUES (1, 'YNUBSEC')
+ON CONFLICT (id) DO NOTHING;
+
 INSERT INTO public.categories (name, slug, sort_order) VALUES
   ('News', 'news', 0),
   ('Personal', 'personal', 1),
   ('Gallery', 'gallery', 2)
 ON CONFLICT (name) DO NOTHING;
 
--- If writeups table already exists without video_url:
-ALTER TABLE public.writeups ADD COLUMN IF NOT EXISTS video_url text;
-
 -- ==========================================
 -- STORAGE (images bucket for admin uploads)
 -- Create in Dashboard: Storage → New bucket → name "images" → Public bucket ON
--- Or run in SQL editor after enabling storage extension:
+-- Or run in the SQL editor after enabling the storage extension:
 -- ==========================================
 -- insert into storage.buckets (id, name, public) values ('images', 'images', true)
 -- on conflict (id) do update set public = true;

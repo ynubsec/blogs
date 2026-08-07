@@ -1,52 +1,21 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ""
-);
-
-interface ImageSettings {
-  darkThemeBackground: string;
-  borderRadius: string;
-  padding: string;
-  boxShadow: string;
-  hoverScale: number;
-  margin: string;
-  imageBackground: string;
-}
+import supabaseAdmin from "@/lib/supabaseAdmin";
+import { isAdminAuthenticated, unauthorizedResponse } from "@/lib/adminAuth";
+import {
+  getBlogImageSettingsUncached,
+  DEFAULT_IMAGE_SETTINGS,
+  type BlogImageSettings,
+} from "@/lib/imageSettings";
 
 const TABLE_NAME = "site_settings";
 const SETTINGS_KEY = "image_styling";
 
-// GET: Retrieve image settings
+// GET: Merged blog image settings (defaults + saved overrides) — public, used by
+// the blog renderer (client) and the admin page.
 export async function GET() {
   try {
-    const { data, error } = await supabase
-      .from(TABLE_NAME)
-      .select("value")
-      .eq("key", SETTINGS_KEY)
-      .single();
-
-    if (error && error.code !== "PGRST116") {
-      console.error("Supabase error:", error);
-      return NextResponse.json({ error: "Failed to load settings" }, { status: 500 });
-    }
-
-    if (data && data.value) {
-      return NextResponse.json(data.value);
-    }
-
-    // Return defaults if not found
-    return NextResponse.json({
-      darkThemeBackground: "white",
-      borderRadius: "8px",
-      padding: "0px",
-      boxShadow: "none",
-      hoverScale: 1.01,
-      margin: "0px",
-      imageBackground: "white",
-    });
+    const settings = await getBlogImageSettingsUncached();
+    return NextResponse.json(settings ?? DEFAULT_IMAGE_SETTINGS);
   } catch (err) {
     console.error("Unexpected error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -56,29 +25,33 @@ export async function GET() {
 // POST: Save image settings
 export async function POST(request: NextRequest) {
   try {
-    // Verify auth (check for admin cookie or token)
-    const cookieAuth = request.cookies.get("admin-auth");
-    if (!cookieAuth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!(await isAdminAuthenticated())) {
+      return unauthorizedResponse();
     }
 
-    const body: ImageSettings = await request.json();
+    const body = (await request.json()) as Partial<BlogImageSettings>;
 
-    // Validate settings structure
+    // Validate core fields
     if (
+      typeof body.darkThemeBackground !== "string" ||
       !body.darkThemeBackground ||
+      typeof body.borderRadius !== "string" ||
       !body.borderRadius ||
+      typeof body.padding !== "string" ||
       !body.padding ||
+      typeof body.imageBackground !== "string" ||
       !body.imageBackground
     ) {
       return NextResponse.json(
         { error: "Missing required fields" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // Try to update, if not exists insert
-    const { error: deleteError } = await supabase
+    const merged: BlogImageSettings = { ...DEFAULT_IMAGE_SETTINGS, ...body };
+
+    // Upsert (delete + insert keeps the table simple)
+    const { error: deleteError } = await supabaseAdmin
       .from(TABLE_NAME)
       .delete()
       .eq("key", SETTINGS_KEY);
@@ -87,11 +60,11 @@ export async function POST(request: NextRequest) {
       console.error("Delete error:", deleteError);
     }
 
-    const { error: insertError } = await supabase
+    const { error: insertError } = await supabaseAdmin
       .from(TABLE_NAME)
       .insert({
         key: SETTINGS_KEY,
-        value: body,
+        value: merged,
         updated_at: new Date().toISOString(),
       });
 
@@ -99,11 +72,11 @@ export async function POST(request: NextRequest) {
       console.error("Insert error:", insertError);
       return NextResponse.json(
         { error: "Failed to save settings" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, settings: merged });
   } catch (err) {
     console.error("Unexpected error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

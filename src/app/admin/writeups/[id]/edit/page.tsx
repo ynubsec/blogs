@@ -7,6 +7,8 @@ import { AdminSidebar } from "../../../AdminSidebar";
 import { MarkdownEditor, type MarkdownEditorHandle } from "@/components/admin/MarkdownEditor";
 import { ImageUploader } from "@/components/admin/ImageUploader";
 import { CategoryField } from "@/components/admin/CategoryField";
+import { ImageToolbar } from "@/components/admin/ImageToolbar";
+import { sanitizeMdxContent } from "@/lib/mdxSanitize";
 
 interface WriteupFormData {
   title: string;
@@ -46,6 +48,10 @@ export default function EditWriteup({ params }: { params: Promise<{ id: string }
 
   const insertImage = (url: string) => {
     editorRef.current?.insertText(`\n![Image](${url})\n`);
+  };
+
+  const insertImageHtml = (html: string) => {
+    editorRef.current?.insertText(`\n${html}`);
   };
 
   useEffect(() => {
@@ -100,6 +106,7 @@ export default function EditWriteup({ params }: { params: Promise<{ id: string }
 
     const payload = {
       ...form,
+      content: sanitizeMdxContent(form.content),
       tags: form.tags ? form.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
     };
 
@@ -151,7 +158,7 @@ export default function EditWriteup({ params }: { params: Promise<{ id: string }
             </p>
           </div>
           <div style={{ display: "flex", gap: "10px" }}>
-            <Link href={`/blog/${form.slug}`} target="_blank" className="btn btn-ghost">
+            <Link href={`/blogs/${form.slug}`} target="_blank" className="btn btn-ghost">
               👁 Preview
             </Link>
             <Link href={isVideoMode ? "/admin/videos" : "/admin"} className="btn btn-ghost">
@@ -279,6 +286,7 @@ export default function EditWriteup({ params }: { params: Promise<{ id: string }
                 </span>
                 <ImageUploader onUploadSuccess={insertImage} />
               </label>
+              <ImageToolbar onInsertImage={insertImageHtml} />
               <MarkdownEditor
                 ref={editorRef}
                 value={form.content}

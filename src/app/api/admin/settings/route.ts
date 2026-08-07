@@ -11,7 +11,14 @@ export async function GET() {
 
   try {
     const config = await getSiteConfig();
-    return NextResponse.json(config);
+    // Include the admin email settings (from-address for Resend broadcasts).
+    const { data: row } = await supabaseAdmin
+      .from("site_config")
+      .select("email")
+      .eq("id", 1)
+      .maybeSingle();
+    const email = (row as { email?: unknown } | null)?.email ?? null;
+    return NextResponse.json({ ...config, email });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to load settings";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -40,6 +47,7 @@ export async function POST(request: Request) {
         blog: data.blog,
         work: data.work,
         gallery: data.gallery,
+        email: data.email ?? null,
         updated_at: new Date().toISOString()
       }).eq("id", 1);
     } else {
@@ -53,6 +61,7 @@ export async function POST(request: Request) {
         blog: data.blog,
         work: data.work,
         gallery: data.gallery,
+        email: data.email ?? null,
       });
     }
 

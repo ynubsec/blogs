@@ -4,6 +4,7 @@ import { Meta, Schema, Column, HeadingNav, Row, Media } from "@once-ui-system/co
 import { baseURL } from "@/resources";
 import { getSiteConfig } from "@/lib/config";
 import { getSupabasePosts, getSupabasePostBySlug } from "@/utils/supabasePosts";
+import { getBlogImageSettings } from "@/lib/imageSettings";
 import type { Metadata } from "next";
 import { RecentPosts } from "@/components/blog/RecentPosts";
 import { ShareSection } from "@/components/blog/ShareSection";
@@ -68,10 +69,45 @@ export default async function BlogPostPage({
   const hasBody = isVideoPost ? contentLength > 0 : contentLength > 80;
   const showToc = contentLength > 80;
 
+  // Cover image sizing from Admin → Image Styling (defaults: wide hero, 16:9)
+  const imageSettings = await getBlogImageSettings();
+  const coverAspectRatio = imageSettings.coverAspectRatio || "16/9";
+  const coverWidth = imageSettings.coverWidth || "wide";
+  const coverWidthCss =
+    coverWidth === "full"
+      ? "100%"
+      : coverWidth === "standard"
+        ? "min(100%, var(--responsive-width-s))"
+        : "min(100%, 940px)";
+
   return (
     <Row fillWidth>
       <Row maxWidth={12} m={{ hide: true }} />
-      <Row fillWidth horizontal="center">
+      <Column fillWidth horizontal="center">
+        {!isVideoPost && post.metadata.image && (
+          <div
+            style={{
+              width: "100%",
+              display: "flex",
+              justifyContent: "center",
+              padding: coverWidth === "full" ? "0" : "0 24px",
+              marginBottom: "0",
+            }}
+          >
+            <div style={{ width: coverWidthCss, maxWidth: "100%" }}>
+              <Media
+                src={post.metadata.image}
+                alt={post.metadata.title}
+                aspectRatio={coverAspectRatio === "auto" ? undefined : coverAspectRatio}
+                priority
+                sizes="(min-width: 1024px) 100%, (min-width: 768px) 100vw, 100vw"
+                border="neutral-alpha-weak"
+                radius="m"
+              />
+            </div>
+          </div>
+        )}
+
         <Column as="article" maxWidth="s" fillWidth paddingTop="24" paddingX="24">
           <Schema
             as="blogPosting"
@@ -105,18 +141,7 @@ export default async function BlogPostPage({
             </div>
           )}
 
-          {!isVideoPost && post.metadata.image && (
-            <Media
-              src={post.metadata.image}
-              alt={post.metadata.title}
-              aspectRatio="16/9"
-              priority
-              sizes="(min-width: 1024px) 100%, (min-width: 768px) 100vw, 100vw"
-              border="neutral-alpha-weak"
-              radius="m"
-              marginBottom="24"
-            />
-          )}
+          {/* Cover hero now renders full-width above the article (see top of page) */}
 
           {hasBody && (
             <Column as="div" fillWidth className={styles.body}>
@@ -132,7 +157,7 @@ export default async function BlogPostPage({
           <RecentPosts excludeSlug={post.slug} limit={3} />
           <ScrollToHash />
         </Column>
-      </Row>
+      </Column>
       {showToc && (
         <Column
           maxWidth={12}

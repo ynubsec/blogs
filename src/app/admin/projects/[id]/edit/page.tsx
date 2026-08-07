@@ -6,6 +6,8 @@ import Link from "next/link";
 import { AdminSidebar } from "../../../AdminSidebar";
 import { MarkdownEditor, type MarkdownEditorHandle } from "@/components/admin/MarkdownEditor";
 import { ImageUploader } from "@/components/admin/ImageUploader";
+import { ImageToolbar } from "@/components/admin/ImageToolbar";
+import { sanitizeMdxContent } from "@/lib/mdxSanitize";
 
 interface ProjectFormData {
   title: string;
@@ -78,6 +80,10 @@ export default function EditProject({ params }: { params: Promise<{ id: string }
     editorRef.current?.insertText(`\n![Image](${url})\n`);
   };
 
+  const insertImageHtml = (html: string) => {
+    editorRef.current?.insertText(`\n${html}`);
+  };
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
@@ -96,6 +102,7 @@ export default function EditProject({ params }: { params: Promise<{ id: string }
 
     const payload = {
       ...form,
+      content: sanitizeMdxContent(form.content),
       images: form.images
         ? form.images.split(",").map((t) => t.trim()).filter(Boolean)
         : [],
@@ -195,6 +202,7 @@ export default function EditProject({ params }: { params: Promise<{ id: string }
                 <span>Content *</span>
                 <ImageUploader onUploadSuccess={insertImage} />
               </label>
+              <ImageToolbar onInsertImage={insertImageHtml} />
               <MarkdownEditor
                 ref={editorRef}
                 value={form.content}

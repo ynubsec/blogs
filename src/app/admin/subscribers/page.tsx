@@ -62,6 +62,67 @@ export default function SubscribersPage() {
 
   const activeCount = subscribers.filter((s) => s.status === "active").length;
 
+  const handleSendTest = async () => {
+    if (!subject || !message) {
+      addToast("error", "Please provide both a subject and a message.");
+      return;
+    }
+    setSending(true);
+    try {
+      const res = await fetch("/api/admin/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject, message, test: true }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        addToast("success", data.message || "Test email sent!");
+      } else {
+        addToast("error", data.error || "Failed to send test email.");
+      }
+    } catch {
+      addToast("error", "Network error while sending.");
+    }
+    setSending(false);
+  };
+
+  const handleUnsubscribe = async (email: string) => {
+    try {
+      const res = await fetch("/api/admin/subscribers", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        addToast("success", `Unsubscribed ${email}`);
+        fetchSubscribers();
+      } else {
+        addToast("error", data.error || "Failed to unsubscribe.");
+      }
+    } catch {
+      addToast("error", "Network error.");
+    }
+  };
+
+  const handleDelete = async (email: string) => {
+    if (!confirm(`Delete ${email} permanently?`)) return;
+    try {
+      const res = await fetch(`/api/admin/subscribers?email=${encodeURIComponent(email)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (res.ok) {
+        addToast("success", `Deleted ${email}`);
+        fetchSubscribers();
+      } else {
+        addToast("error", data.error || "Failed to delete.");
+      }
+    } catch {
+      addToast("error", "Network error.");
+    }
+  };
+
   return (
     <div className="admin-shell">
       <AdminSidebar />
@@ -88,12 +149,13 @@ export default function SubscribersPage() {
                     <th>Email</th>
                     <th>Status</th>
                     <th>Date</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {subscribers.length === 0 && !loading && (
                     <tr>
-                      <td colSpan={3} style={{ textAlign: "center", padding: "2rem" }}>
+                      <td colSpan={4} style={{ textAlign: "center", padding: "2rem" }}>
                         No subscribers yet.
                       </td>
                     </tr>
@@ -108,6 +170,28 @@ export default function SubscribersPage() {
                       </td>
                       <td className="text-muted text-small">
                         {new Date(sub.subscribed_at).toLocaleDateString()}
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                          {sub.status === "active" ? (
+                            <button
+                              className="btn btn-ghost"
+                              onClick={() => handleUnsubscribe(sub.email)}
+                              style={{ fontSize: "12px", padding: "4px 8px" }}
+                            >
+                              Unsubscribe
+                            </button>
+                          ) : (
+                            <span className="badge badge-draft">unsubscribed</span>
+                          )}
+                          <button
+                            className="btn btn-ghost"
+                            onClick={() => handleDelete(sub.email)}
+                            style={{ fontSize: "12px", padding: "4px 8px", color: "#ff5f57" }}
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -145,13 +229,26 @@ export default function SubscribersPage() {
                 />
               </div>
 
-              <button
-                className="btn btn-primary"
-                onClick={handleSendEmail}
-                disabled={sending || activeCount === 0}
-              >
-                {sending ? "Sending..." : `Send to ${activeCount} subscribers`}
-              </button>
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                <button
+                  className="btn btn-ghost"
+                  onClick={handleSendTest}
+                  disabled={sending}
+                >
+                  {sending ? "Sending..." : "📤 Send Test Email"}
+                </button>
+                <button
+                  className="btn btn-primary"
+                  onClick={handleSendEmail}
+                  disabled={sending || activeCount === 0}
+                >
+                  {sending ? "Sending..." : `Send to ${activeCount} subscribers`}
+                </button>
+              </div>
+              <p className="text-muted text-small" style={{ marginTop: "10px" }}>
+                Test sends a preview to your sender address (configured under Settings → Email) so you can
+                verify the template and API key before a real broadcast.
+              </p>
             </div>
           </div>
         </div>

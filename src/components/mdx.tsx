@@ -13,6 +13,7 @@ import { parseStyleString, rehypeParseInlineStyle } from "@/lib/rehypeParseInlin
 import { remarkParseInlineStyle } from "@/lib/remarkParseInlineStyle";
 import { visit } from "unist-util-visit";
 import type { Root, Element } from "hast";
+import { sanitizeMdxContent } from "@/lib/mdxSanitize";
 
 const rehypeRawWithMdx: Pluggable = [
   rehypeRaw,
@@ -139,55 +140,102 @@ function rehypeHandleClickableElements() {
   };
 }
 
-// Rehype plugin to transform all img elements into ZoomableImage components
+// Read an attribute from an MDX JSX element (mdxJsxFlowElement / mdxJsxTextElement)
+function getMdxAttr(node: any, name: string): unknown {
+  const attr = (node.attributes || []).find(
+    (a: any) => a.type === "mdxJsxAttribute" && a.name === name,
+  );
+  if (!attr) return undefined;
+  return attr.value && attr.value.type === "mdxJsxAttributeValueExpression"
+    ? attr.value.value
+    : attr.value;
+}
+
+// Build a ZoomableImage JSX node from an img node (hast element OR MDX JSX element).
+// Returns null when there is no usable src.
+function imgNodeToZoomable(node: any) {
+  const isElement = node.type === "element";
+  const src = isElement
+    ? String(node.properties?.src || "")
+    : String(getMdxAttr(node, "src") || "");
+  if (!src) return null;
+
+  const alt = isElement
+    ? String(node.properties?.alt || "")
+    : String(getMdxAttr(node, "alt") || "");
+  const width = isElement ? node.properties?.width : getMdxAttr(node, "width");
+  const align = isElement ? node.properties?.align : getMdxAttr(node, "align");
+  const style = isElement ? node.properties?.style : getMdxAttr(node, "style");
+  // MDX expression styles (e.g. style={{...}}) are left alone — only plain CSS strings are parsed
+  const styleIsExpression =
+    !isElement &&
+    (node.attributes || []).some(
+      (a: any) =>
+        a.type === "mdxJsxAttribute" &&
+        a.name === "style" &&
+        a.value?.type === "mdxJsxAttributeValueExpression",
+    );
+
+  const inlineStyles: Record<string, string | number> = {};
+  if (typeof style === "string" && !styleIsExpression) {
+    const parsed = parseStyleString(style) ?? {};
+    Object.assign(inlineStyles, parsed);
+  }
+
+  // Handle alignment
+  if (align === "left" || align === "right") {
+    inlineStyles.float = align;
+    inlineStyles.margin = align === "left" ? "0 1rem 1rem 0" : "0 0 1rem 1rem";
+  } else if (align === "center") {
+    // Center alignment: use display and margin
+    inlineStyles.display = "block";
+    inlineStyles.margin = "0 auto";
+  }
+
+  // Apply width
+  if (width) {
+    inlineStyles.width = typeof width === "number" ? `${width}px` : String(width);
+  }
+
+  // Keep text elements inline (e.g. <img> inside a paragraph) so MDX still compiles
+  const isText = node.type === "mdxJsxTextElement";
+  return {
+    type: isText ? "mdxJsxTextElement" : "mdxJsxFlowElement",
+    name: "ZoomableImage",
+    attributes: [
+      { type: "mdxJsxAttribute", name: "src", value: src } as any,
+      { type: "mdxJsxAttribute", name: "alt", value: alt } as any,
+      { type: "mdxJsxAttribute", name: "sizes", value: "(max-width: 960px) 100vw, 960px" } as any,
+      { type: "mdxJsxExpressionAttribute", name: "inline", value: "true" } as any,
+      { type: "mdxJsxExpressionAttribute", name: "inlineStyles", value: JSON.stringify(inlineStyles) } as any,
+    ],
+    children: [],
+  };
+}
+
+// Rehype plugin to transform all img elements into ZoomableImage components.
+// Handles BOTH hast <img> elements (markdown images) AND MDX JSX img elements
+// (raw HTML <img> tags — MDX v3 parses those natively, so they arrive as
+// mdxJsxFlowElement/mdxJsxTextElement nodes and bypass the hast path).
 function rehypeTransformImagesToZoomable() {
   return (tree: Root) => {
     visit(tree, "element", (node: Element, index: number | undefined, parent: any) => {
       if (node.tagName === "img" && index !== undefined && parent) {
-        // Extract attributes
-        const src = String(node.properties?.src || "");
-        const alt = String(node.properties?.alt || "");
-        const width = node.properties?.width;
-        const align = node.properties?.align;
-        const style = node.properties?.style;
+        const replacement = imgNodeToZoomable(node);
+        if (replacement) parent.children[index] = replacement;
+      }
+    });
 
-        if (!src) return;
-
-        const inlineStyles: Record<string, string | number> = {};
-        const parsed = parseStyleString(style) ?? {};
-        Object.assign(inlineStyles, parsed);
-
-        // Handle alignment
-        if (align === "left" || align === "right") {
-          inlineStyles.float = align;
-          inlineStyles.margin = align === "left" ? "0 1rem 1rem 0" : "0 0 1rem 1rem";
-        } else if (align === "center") {
-          // Center alignment: use display and margin
-          inlineStyles.display = "block";
-          inlineStyles.margin = "0 auto";
-        }
-
-        // Apply width
-        if (width) {
-          inlineStyles.width = typeof width === "number" ? `${width}px` : String(width);
-        }
-
-        // Always use inline styles for white background
-        const hasInlineStyles = true;
-
-        // Replace img element with ZoomableImage JSX
-        parent.children[index] = {
-          type: "mdxJsxFlowElement",
-          name: "ZoomableImage",
-          attributes: [
-            { type: "mdxJsxAttribute", name: "src", value: src } as any,
-            { type: "mdxJsxAttribute", name: "alt", value: alt } as any,
-            { type: "mdxJsxAttribute", name: "sizes", value: "(max-width: 960px) 100vw, 960px" } as any,
-            { type: "mdxJsxExpressionAttribute", name: "inline", value: "true" } as any,
-            { type: "mdxJsxExpressionAttribute", name: "inlineStyles", value: JSON.stringify(inlineStyles) } as any,
-          ],
-          children: [],
-        };
+    visit(tree, (node: any, index: number | undefined, parent: any) => {
+      if (
+        node &&
+        (node.type === "mdxJsxFlowElement" || node.type === "mdxJsxTextElement") &&
+        node.name === "img" &&
+        index !== undefined &&
+        parent
+      ) {
+        const replacement = imgNodeToZoomable(node);
+        if (replacement) parent.children[index] = replacement;
       }
     });
   };
@@ -209,7 +257,8 @@ function createHtmlElement(tag: "span" | "div") {
  * 1. Ensure fenced code blocks start on a new line (Markdown requires this).
  * 2. Escape curly braces inside code fences so MDX doesn't evaluate them as JSX expressions.
  * 3. Remove any HTML comments which MDX cannot parse.
- * 4. Convert SVG hyphenated attributes to camelCase (e.g., stroke-width → strokeWidth)
+ * 4. Self-close unclosed HTML void elements (e.g. <img ...> → <img ... />) so MDX can parse them.
+ * 5. Convert SVG hyphenated attributes to camelCase (e.g., stroke-width → strokeWidth)
  */
 function preprocessMarkdown(content: string): string {
   let processed = content.replace(/([^\n])(\n?```[a-z]*\n)/gi, "$1\n\n$2");
@@ -223,8 +272,8 @@ function preprocessMarkdown(content: string): string {
     return match.replace(code, escapedCode);
   });
 
-  // Remove HTML comments which MDX cannot parse
-  processed = processed.replace(/<!--[\s\S]*?-->/g, "");
+  // Remove HTML comments + self-close unclosed HTML void elements so MDX can parse them.
+  processed = sanitizeMdxContent(processed);
 
   // Convert SVG hyphenated attributes to camelCase for React compatibility
   // This handles attributes like stroke-width, text-anchor, dominant-baseline, etc.

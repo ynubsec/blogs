@@ -29,10 +29,9 @@ npm run dev
 
 ## 2. Supabase database
 
-In **Supabase → SQL Editor**, run in order:
+In **Supabase → SQL Editor**, run the single consolidated schema:
 
-1. Full schema: `supabase_schema.sql`
-2. If the DB already existed: `supabase_indexes.sql` (indexes only)
+1. `supabase.sql` (full schema + indexes + policies — safe to re-run)
 
 This creates:
 
@@ -44,11 +43,13 @@ This creates:
 | `site_config` | Person, blog, gallery JSON settings |
 | `subscribers` | Newsletter |
 | `contact_messages` | Contact form |
+| `diagrams` | Diagram builder |
+| `site_settings` | Admin image styling |
 
 ## 3. Storage
 
 1. **Storage → New bucket** → name `images` → **Public** ON  
-2. Or run the commented SQL at the bottom of `supabase_schema.sql`
+2. Or run the commented SQL at the bottom of `supabase.sql`
 
 ## 4. Admin workflow
 

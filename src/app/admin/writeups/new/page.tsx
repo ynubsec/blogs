@@ -8,6 +8,7 @@ import { MarkdownEditor, type MarkdownEditorHandle } from "@/components/admin/Ma
 import { ImageUploader } from "@/components/admin/ImageUploader";
 import { CategoryField } from "@/components/admin/CategoryField";
 import { ImageToolbar } from "@/components/admin/ImageToolbar";
+import { sanitizeMdxContent } from "@/lib/mdxSanitize";
 
 interface WriteupFormData {
   title: string;
@@ -104,6 +105,7 @@ function NewWriteupForm() {
 
     const payload = {
       ...form,
+      content: sanitizeMdxContent(form.content),
       tags: form.tags ? form.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
     };
 
